@@ -8,53 +8,74 @@ from config import (
 )
 from telegram_bot import send_alert
 
-sensor_data = {"temperature": None, "co2": None}
+# Lưu dữ liệu và trạng thái cảnh báo theo từng node
+# { "Node_abc": {"temperature": 34.0, "co2": 1800, "tvoc": 120, "alerted": {"temp":False,...}} }
+_nodes = {}
 
-# Trạng thái cảnh báo — tránh spam khi giá trị dao động quanh ngưỡng
-_alerted = {"temp": False, "co2": False, "both": False}
+
+def _get_node(node_id):
+    if node_id not in _nodes:
+        _nodes[node_id] = {
+            "temperature": None,
+            "co2": None,
+            "tvoc": None,
+            "alerted": {"temp": False, "co2": False, "both": False},
+        }
+    return _nodes[node_id]
 
 
-def _check_and_alert():
-    temp = sensor_data["temperature"]
-    co2 = sensor_data["co2"]
+def _fmt_tvoc(tvoc):
+    return f"{int(tvoc)} ppb" if tvoc is not None else "N/A"
+
+
+def _check_and_alert(node_id, node):
+    temp = node["temperature"]
+    co2  = node["co2"]
+    tvoc = node["tvoc"]
+    al   = node["alerted"]
 
     temp_over = temp is not None and temp >= TEMP_THRESHOLD
-    co2_over = co2 is not None and co2 >= CO2_THRESHOLD
+    co2_over  = co2  is not None and co2  >= CO2_THRESHOLD
 
-    if temp_over and co2_over and not _alerted["both"]:
+    header = f"📍 Node: <b>{node_id}</b>\n"
+
+    if temp_over and co2_over and not al["both"]:
         send_alert(
             f"🚨 <b>CẢNH BÁO NGHIÊM TRỌNG!</b>\n"
-            f"Cả 2 chỉ số vượt ngưỡng an toàn:\n"
+            f"{header}"
             f"🌡 Nhiệt độ: <b>{temp}°C</b> (ngưỡng: {TEMP_THRESHOLD}°C)\n"
-            f"💨 CO₂: <b>{int(co2)} ppm</b> (ngưỡng: {int(CO2_THRESHOLD)} ppm)"
+            f"💨 CO₂: <b>{int(co2)} ppm</b> (ngưỡng: {int(CO2_THRESHOLD)} ppm)\n"
+            f"🧪 TVOC: {_fmt_tvoc(tvoc)}"
         )
-        _alerted["both"] = True
-        _alerted["temp"] = True
-        _alerted["co2"] = True
+        al["both"] = al["temp"] = al["co2"] = True
 
-    elif temp_over and not _alerted["temp"]:
+    elif temp_over and not al["temp"]:
         send_alert(
             f"⚠️ <b>CẢNH BÁO nhiệt độ cao!</b>\n"
+            f"{header}"
             f"🌡 Nhiệt độ: <b>{temp}°C</b> (ngưỡng: {TEMP_THRESHOLD}°C)\n"
-            f"💨 CO₂ hiện tại: {int(co2) if co2 is not None else 'N/A'} ppm"
+            f"💨 CO₂: {int(co2) if co2 is not None else 'N/A'} ppm\n"
+            f"🧪 TVOC: {_fmt_tvoc(tvoc)}"
         )
-        _alerted["temp"] = True
+        al["temp"] = True
 
-    elif co2_over and not _alerted["co2"]:
+    elif co2_over and not al["co2"]:
         send_alert(
             f"⚠️ <b>CẢNH BÁO CO₂ cao!</b>\n"
+            f"{header}"
             f"💨 CO₂: <b>{int(co2)} ppm</b> (ngưỡng: {int(CO2_THRESHOLD)} ppm)\n"
-            f"🌡 Nhiệt độ hiện tại: {temp if temp is not None else 'N/A'}°C"
+            f"🌡 Nhiệt độ: {temp if temp is not None else 'N/A'}°C\n"
+            f"🧪 TVOC: {_fmt_tvoc(tvoc)}"
         )
-        _alerted["co2"] = True
+        al["co2"] = True
 
-    # Reset cảnh báo khi giá trị trở về bình thường
+    # Reset khi giá trị trở về bình thường
     if not temp_over:
-        _alerted["temp"] = False
-        _alerted["both"] = False
+        al["temp"] = False
+        al["both"] = False
     if not co2_over:
-        _alerted["co2"] = False
-        _alerted["both"] = False
+        al["co2"] = False
+        al["both"] = False
 
 
 def on_connect(client, userdata, flags, reason_code, properties=None):
@@ -67,33 +88,28 @@ def on_connect(client, userdata, flags, reason_code, properties=None):
 
 
 def on_message(client, userdata, msg):
-    topic = msg.topic
+    topic   = msg.topic
     payload = msg.payload.decode("utf-8").strip()
     print(f"[MQTT] {topic}: {payload}")
 
     try:
-        # Thử parse JSON trước (vd: {"temperature": 34.1, "co2": 1500})
         data = json.loads(payload)
-        if "temperature" in data:
-            sensor_data["temperature"] = float(data["temperature"])
-        if "co2" in data:
-            sensor_data["co2"] = float(data["co2"])
-        elif "CO2" in data:
-            sensor_data["co2"] = float(data["CO2"])
     except (json.JSONDecodeError, ValueError):
-        # Nếu payload là giá trị đơn (vd: "34.1")
-        try:
-            value = float(payload)
-            topic_lower = topic.lower()
-            if "temp" in topic_lower:
-                sensor_data["temperature"] = value
-            elif "co2" in topic_lower:
-                sensor_data["co2"] = value
-        except ValueError:
-            print(f"[MQTT] Không đọc được payload: {payload}")
-            return
+        print(f"[MQTT] Không đọc được payload: {payload}")
+        return
 
-    _check_and_alert()
+    # Lấy node_id từ JSON hoặc từ tên topic (sensor/<node_id>)
+    node_id = data.get("node_id") or topic.split("/")[-1] or "unknown"
+    node    = _get_node(node_id)
+
+    if "temperature" in data:
+        node["temperature"] = float(data["temperature"])
+    if "co2" in data:
+        node["co2"] = float(data["co2"])
+    if "tvoc" in data:
+        node["tvoc"] = float(data["tvoc"])
+
+    _check_and_alert(node_id, node)
 
 
 def create_client() -> mqtt.Client:
