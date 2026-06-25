@@ -5,6 +5,8 @@ from config import HIVEMQ_HOST, HIVEMQ_PORT
 
 def main():
     print("[App] Khởi động dịch vụ HiveMQ → Telegram Alert...")
+    print(f"[Config] HIVEMQ_HOST = '{HIVEMQ_HOST}'")
+    print(f"[Config] HIVEMQ_PORT = {HIVEMQ_PORT}")
     while True:
         client = create_client()
         try:
