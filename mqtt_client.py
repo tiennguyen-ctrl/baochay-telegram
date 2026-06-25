@@ -103,7 +103,7 @@ def on_message(client, userdata, msg):
     node    = _get_node(node_id)
 
     if "temperature" in data:
-        node["temperature"] = float(data["temperature"])
+        node["temperature"] = round(float(data["temperature"]), 1)
     if "co2" in data:
         node["co2"] = float(data["co2"])
     if "tvoc" in data:
