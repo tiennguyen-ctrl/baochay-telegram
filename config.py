@@ -11,6 +11,3 @@ HIVEMQ_PORT = int(os.getenv("HIVEMQ_PORT", 8883))
 HIVEMQ_USERNAME = os.getenv("HIVEMQ_USERNAME")
 HIVEMQ_PASSWORD = os.getenv("HIVEMQ_PASSWORD")
 MQTT_TOPIC = os.getenv("MQTT_TOPIC", "sensor/#")
-
-TEMP_THRESHOLD = float(os.getenv("TEMP_THRESHOLD", 33.5))
-CO2_THRESHOLD = float(os.getenv("CO2_THRESHOLD", 2000))
