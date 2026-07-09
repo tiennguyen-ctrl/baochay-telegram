@@ -9,7 +9,7 @@ from config import (
 )
 from telegram_bot import send_alert
 
-# Ngưỡng hiệu chỉnh: áp dụng khi nhiệt độ thực >= 33°C
+# Ngưỡng hiệu chỉnh: áp dụng khi nhiệt độ thực >= 35°C
 OFFSET_THRESHOLD = 35.0
 TEMP_OFFSET      = 30.0
 HUM_OFFSET       = 63.0

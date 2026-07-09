@@ -1,0 +1,178 @@
+<mxfile host="app.diagrams.net" version="24.0">
+  <diagram name="Fire Alert Flowchart" id="fire-alert-flow">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="900" pageHeight="1400" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- 1. START -->
+        <mxCell id="s1" value="BẮT ĐẦU" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="340" y="30" width="120" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- 2. MERGED: ESP32 + HiveMQ + Railway -->
+        <mxCell id="s2" value="ESP32 đọc cảm biến (Temp / Hum / CO₂ / TVOC)&lt;br&gt;→ Publish JSON lên &lt;b&gt;HiveMQ&lt;/b&gt; topic sensor/&amp;lt;node_id&amp;gt;&lt;br&gt;→ &lt;b&gt;Railway&lt;/b&gt; nhận &amp; parse data, xác định node" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="250" y="130" width="300" height="75" as="geometry" />
+        </mxCell>
+
+        <!-- 3. D1: FIRE? -->
+        <mxCell id="d1" value="temp ≥ 40°C&lt;br&gt;AND co2 ≥ 3000?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="270" y="265" width="260" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- 4. D2: FIRE_RISK? -->
+        <mxCell id="d2" value="temp ≥ 35°C&lt;br&gt;AND co2 ≥ 2000?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="270" y="405" width="260" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- 5. D3: HIGH_TEMP? -->
+        <mxCell id="d3" value="temp ≥ 35°C?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="270" y="545" width="260" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- 6. D4: HIGH_CO2? -->
+        <mxCell id="d4" value="co2 ≥ 2000?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="270" y="685" width="260" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- 7. D5: Trạng thái thay đổi? -->
+        <mxCell id="d5" value="Trạng thái thay đổi&lt;br&gt;so với last_state?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="270" y="840" width="260" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- 8. Bỏ qua -->
+        <mxCell id="s_skip" value="Bỏ qua&lt;br&gt;(không gửi gì)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="80" y="858" width="150" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- 9. Telegram -->
+        <mxCell id="s_tele" value="📱 &lt;b&gt;Telegram Bot&lt;/b&gt; gửi cảnh báo&lt;br&gt;theo trạng thái mới của node&lt;br&gt;→ Cập nhật last_state" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="255" y="990" width="290" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- 10. END -->
+        <mxCell id="s_end" value="KẾT THÚC&lt;br&gt;(chờ message tiếp theo)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="325" y="1130" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- ===== EDGES ===== -->
+
+        <!-- s1 → s2 -->
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="s1" target="s2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- s2 → d1 -->
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="s2" target="d1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- d1 KHÔNG → d2 -->
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="d1" target="d2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3_lbl" value="KHÔNG" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="e3">
+          <mxGeometry relative="0.5" as="geometry" />
+        </mxCell>
+
+        <!-- d2 KHÔNG → d3 -->
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="d2" target="d3" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4_lbl" value="KHÔNG" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="e4">
+          <mxGeometry relative="0.5" as="geometry" />
+        </mxCell>
+
+        <!-- d3 KHÔNG → d4 -->
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="d3" target="d4" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5_lbl" value="KHÔNG" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="e5">
+          <mxGeometry relative="0.5" as="geometry" />
+        </mxCell>
+
+        <!-- d4 KHÔNG → d5 (SAFE) -->
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="d4" target="d5" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6_lbl" value="KHÔNG (✅ SAFE)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="e6">
+          <mxGeometry relative="0.5" as="geometry" />
+        </mxCell>
+
+        <!-- d1 CÓ → d5 (FIRE) -->
+        <mxCell id="e_d1" style="edgeStyle=orthogonalEdgeStyle;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="d1" target="d5" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="700" y="305" />
+              <mxPoint x="700" y="880" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_d1_lbl" value="CÓ → 🔥 FIRE" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fillColor=#f8cecc;rounded=1;" vertex="1" connectable="0" parent="e_d1">
+          <mxGeometry relative="0.15" as="geometry" />
+        </mxCell>
+
+        <!-- d2 CÓ → d5 (FIRE_RISK) -->
+        <mxCell id="e_d2" style="edgeStyle=orthogonalEdgeStyle;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="d2" target="d5" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="700" y="445" />
+              <mxPoint x="700" y="880" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_d2_lbl" value="CÓ → 🔶 FIRE_RISK" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fillColor=#ffe6cc;rounded=1;" vertex="1" connectable="0" parent="e_d2">
+          <mxGeometry relative="0.2" as="geometry" />
+        </mxCell>
+
+        <!-- d3 CÓ → d5 (HIGH_TEMP) -->
+        <mxCell id="e_d3" style="edgeStyle=orthogonalEdgeStyle;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="d3" target="d5" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="700" y="585" />
+              <mxPoint x="700" y="880" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_d3_lbl" value="CÓ → ⚠️ HIGH_TEMP" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fillColor=#ffe6cc;rounded=1;" vertex="1" connectable="0" parent="e_d3">
+          <mxGeometry relative="0.25" as="geometry" />
+        </mxCell>
+
+        <!-- d4 CÓ → d5 (HIGH_CO2) -->
+        <mxCell id="e_d4" style="edgeStyle=orthogonalEdgeStyle;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="d4" target="d5" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="700" y="725" />
+              <mxPoint x="700" y="880" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_d4_lbl" value="CÓ → ⚠️ HIGH_CO2" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fillColor=#dae8fc;rounded=1;" vertex="1" connectable="0" parent="e_d4">
+          <mxGeometry relative="0.3" as="geometry" />
+        </mxCell>
+
+        <!-- d5 KHÔNG → skip -->
+        <mxCell id="e_skip" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="d5" target="s_skip" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_skip_lbl" value="KHÔNG" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="e_skip">
+          <mxGeometry relative="0.5" as="geometry" />
+        </mxCell>
+
+        <!-- d5 CÓ → telegram -->
+        <mxCell id="e_tele" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="d5" target="s_tele" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_tele_lbl" value="CÓ" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="e_tele">
+          <mxGeometry relative="0.5" as="geometry" />
+        </mxCell>
+
+        <!-- telegram → end -->
+        <mxCell id="e_end" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="s_tele" target="s_end" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
