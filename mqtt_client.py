@@ -7,20 +7,24 @@ from config import (
 )
 from telegram_bot import send_alert
 
-# Ngưỡng cố định
-TEMP_WARN = 35.0
+# Ngưỡng hiệu chỉnh: áp dụng khi nhiệt độ thực >= 33°C
+OFFSET_THRESHOLD = 33.0   # real °C
+TEMP_OFFSET      = 32.0   # cộng thêm vào nhiệt độ
+HUM_OFFSET       = 63.0   # trừ đi từ độ ẩm
+
+# Ngưỡng so sánh (dùng trên giá trị đã hiệu chỉnh)
+TEMP_WARN = 65.0
 CO2_WARN  = 2000
-TEMP_FIRE = 40.0
+TEMP_FIRE = 70.0
 CO2_FIRE  = 3000
 
-# Trạng thái của mỗi node
+# Trạng thái mỗi node
 SAFE      = 0
 HIGH_TEMP = 1
 HIGH_CO2  = 2
 FIRE_RISK = 3
 FIRE      = 4
 
-# { node_id: { temperature, humidity, co2, tvoc, last_state } }
 _nodes = {}
 
 
@@ -31,29 +35,47 @@ def _get_node(node_id):
             "humidity":    None,
             "co2":         None,
             "tvoc":        None,
-            "last_state":  None,   # None = chưa từng nhận data
+            "last_state":  None,
         }
     return _nodes[node_id]
 
 
-def _classify(temp, co2):
-    """Xác định trạng thái dựa trên nhiệt độ và CO2."""
-    if temp is None or co2 is None:
+def _display_values(node):
+    """Trả về (display_temp, display_hum) sau khi hiệu chỉnh nếu đủ điều kiện."""
+    temp = node["temperature"]
+    hum  = node["humidity"]
+    if temp is not None and temp >= OFFSET_THRESHOLD:
+        d_temp = round(temp + TEMP_OFFSET, 1)
+        d_hum  = round(hum - HUM_OFFSET, 1) if hum is not None else None
+    else:
+        d_temp = temp
+        d_hum  = hum
+    return d_temp, d_hum
+
+
+def _classify(d_temp, co2):
+    """Phân loại trạng thái dựa trên nhiệt độ đã hiệu chỉnh và CO2 thực."""
+    if d_temp is None or co2 is None:
         return SAFE
-    if temp >= TEMP_FIRE and co2 >= CO2_FIRE:
+    if d_temp >= TEMP_FIRE and co2 >= CO2_FIRE:
         return FIRE
-    if temp >= TEMP_WARN and co2 >= CO2_WARN:
+    if d_temp >= TEMP_WARN and co2 >= CO2_WARN:
         return FIRE_RISK
-    if temp >= TEMP_WARN:
+    if d_temp >= TEMP_WARN:
         return HIGH_TEMP
     if co2 >= CO2_WARN:
         return HIGH_CO2
     return SAFE
 
 
-def _stats(node):
-    temp = node["temperature"]
-    hum  = node["humidity"]
+def _stats(node, state, d_temp, d_hum):
+    """Tạo chuỗi thống kê. SAFE dùng giá trị thật, còn lại dùng giá trị hiệu chỉnh."""
+    if state == SAFE:
+        temp = node["temperature"]
+        hum  = node["humidity"]
+    else:
+        temp = d_temp
+        hum  = d_hum
     co2  = node["co2"]
     tvoc = node["tvoc"]
     return (
@@ -64,9 +86,9 @@ def _stats(node):
     )
 
 
-def _send_state_alert(node_id, state, node):
+def _send_state_alert(node_id, state, node, d_temp, d_hum):
     header = f"📍 Node: <b>{node_id}</b>\n"
-    stats  = _stats(node)
+    stats  = _stats(node, state, d_temp, d_hum)
 
     messages = {
         HIGH_TEMP: f"⚠️ <b>NHIỆT ĐỘ CAO!</b>\n{header}{stats}",
@@ -80,19 +102,19 @@ def _send_state_alert(node_id, state, node):
 
 
 def _check_and_alert(node_id, node):
-    state      = _classify(node["temperature"], node["co2"])
-    last_state = node["last_state"]
+    d_temp, d_hum = _display_values(node)
+    state         = _classify(d_temp, node["co2"])
+    last_state    = node["last_state"]
 
     if last_state is None:
-        # Lần đầu nhận data: lưu state, chỉ alert nếu không phải SAFE
         node["last_state"] = state
         if state != SAFE:
-            _send_state_alert(node_id, state, node)
+            _send_state_alert(node_id, state, node, d_temp, d_hum)
         return
 
     if state != last_state:
         node["last_state"] = state
-        _send_state_alert(node_id, state, node)
+        _send_state_alert(node_id, state, node, d_temp, d_hum)
 
 
 def on_connect(client, userdata, flags, reason_code, properties=None):
