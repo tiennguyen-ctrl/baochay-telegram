@@ -1,5 +1,7 @@
 import json
 import ssl
+import threading
+import time
 import paho.mqtt.client as mqtt
 
 from config import (
@@ -8,15 +10,19 @@ from config import (
 from telegram_bot import send_alert
 
 # Ngưỡng hiệu chỉnh: áp dụng khi nhiệt độ thực >= 33°C
-OFFSET_THRESHOLD = 33.0   # real °C
-TEMP_OFFSET      = 32.0   # cộng thêm vào nhiệt độ
-HUM_OFFSET       = 63.0   # trừ đi từ độ ẩm
+OFFSET_THRESHOLD = 33.0
+TEMP_OFFSET      = 32.0
+HUM_OFFSET       = 63.0
 
-# Ngưỡng so sánh (dùng trên giá trị đã hiệu chỉnh)
+# Ngưỡng so sánh (trên giá trị đã hiệu chỉnh)
 TEMP_WARN = 65.0
 CO2_WARN  = 2000
 TEMP_FIRE = 70.0
 CO2_FIRE  = 3000
+
+# Timeout SED: nếu node không gửi data quá 5 phút → coi là SAFE
+NODE_TIMEOUT  = 5 * 60   # giây
+CHECK_INTERVAL = 30       # kiểm tra mỗi 30 giây
 
 # Trạng thái mỗi node
 SAFE      = 0
@@ -36,12 +42,12 @@ def _get_node(node_id):
             "co2":         None,
             "tvoc":        None,
             "last_state":  None,
+            "last_seen":   None,   # timestamp lần cuối nhận data
         }
     return _nodes[node_id]
 
 
 def _display_values(node):
-    """Trả về (display_temp, display_hum) sau khi hiệu chỉnh nếu đủ điều kiện."""
     temp = node["temperature"]
     hum  = node["humidity"]
     if temp is not None and temp >= OFFSET_THRESHOLD:
@@ -54,7 +60,6 @@ def _display_values(node):
 
 
 def _classify(d_temp, co2):
-    """Phân loại trạng thái dựa trên nhiệt độ đã hiệu chỉnh và CO2 thực."""
     if d_temp is None or co2 is None:
         return SAFE
     if d_temp >= TEMP_FIRE and co2 >= CO2_FIRE:
@@ -69,7 +74,6 @@ def _classify(d_temp, co2):
 
 
 def _stats(node, state, d_temp, d_hum):
-    """Tạo chuỗi thống kê. SAFE dùng giá trị thật, còn lại dùng giá trị hiệu chỉnh."""
     if state == SAFE:
         temp = node["temperature"]
         hum  = node["humidity"]
@@ -89,7 +93,6 @@ def _stats(node, state, d_temp, d_hum):
 def _send_state_alert(node_id, state, node, d_temp, d_hum):
     header = f"📍 Node: <b>{node_id}</b>\n"
     stats  = _stats(node, state, d_temp, d_hum)
-
     messages = {
         HIGH_TEMP: f"⚠️ <b>NHIỆT ĐỘ CAO!</b>\n{header}{stats}",
         HIGH_CO2:  f"⚠️ <b>NỒNG ĐỘ CO₂ CAO!</b>\n{header}{stats}",
@@ -117,6 +120,29 @@ def _check_and_alert(node_id, node):
         _send_state_alert(node_id, state, node, d_temp, d_hum)
 
 
+def _timeout_checker():
+    while True:
+        time.sleep(CHECK_INTERVAL)
+        now = time.time()
+        for node_id, node in list(_nodes.items()):
+            if node["last_seen"] is None:
+                continue
+            if now - node["last_seen"] < NODE_TIMEOUT:
+                continue
+            # Node im lặng quá 5 phút
+            if node["last_state"] not in (None, SAFE):
+                d_temp, d_hum = _display_values(node)
+                node["last_state"] = SAFE
+                _send_state_alert(node_id, SAFE, node, d_temp, d_hum)
+                print(f"[Timeout] Node {node_id} không gửi data > 5 phút → SAFE")
+
+
+def start_timeout_checker():
+    t = threading.Thread(target=_timeout_checker, daemon=True)
+    t.start()
+    print("[App] Timeout checker started (interval=30s, timeout=5m)")
+
+
 def on_connect(client, userdata, flags, reason_code, properties=None):
     if reason_code == 0:
         print(f"[MQTT] Kết nối thành công: {HIVEMQ_HOST}")
@@ -139,6 +165,8 @@ def on_message(client, userdata, msg):
 
     node_id = data.get("node_id") or topic.split("/")[-1] or "unknown"
     node    = _get_node(node_id)
+
+    node["last_seen"] = time.time()
 
     if "temperature" in data:
         node["temperature"] = round(float(data["temperature"]), 1)
